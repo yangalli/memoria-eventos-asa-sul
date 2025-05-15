@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema de Memória de Eventos
 
-## Getting Started
+Uma aplicação web para registrar memórias de eventos para organizações voluntárias. Este sistema permite coletar feedback tanto de participantes quanto de organizadores, e gera relatórios abrangentes para melhorar eventos futuros.
 
-First, run the development server:
+## Funcionalidades
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Gerenciamento de eventos (criar, visualizar e acompanhar eventos)
+- Coleta de feedback dos participantes (arte, comida, experiência em grupo, conversas)
+- Coleta de feedback dos organizadores (despesas, voluntários, desafios, sugestões)
+- Relatórios abrangentes de eventos
+- Design responsivo para todos os dispositivos
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Tecnologias Utilizadas
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- [Next.js 15](https://nextjs.org/) - Framework React
+- [TypeScript](https://www.typescriptlang.org/) - Segurança de tipos
+- [Tailwind CSS](https://tailwindcss.com/) - CSS utilitário
+- [shadcn/ui](https://ui.shadcn.com/) - Biblioteca de componentes UI
+- [Supabase](https://supabase.com/) - Backend e banco de dados
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Como Começar
 
-## Learn More
+1. Clone o repositório
+2. Instale as dependências:
+   ```bash
+   npm install
+   ```
+3. Crie um arquivo `.env.local` com suas credenciais do Supabase:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=sua-url-do-supabase
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon-do-supabase
+   ```
+4. Execute o servidor de desenvolvimento:
+   ```bash
+   npm run dev
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+## Configuração do Supabase
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Crie um novo projeto Supabase
+2. Configure as seguintes tabelas no banco de dados Supabase:
+   - `events`
+   - `participant_feedback`
+   - `organizer_feedback`
+3. Os esquemas das tabelas devem corresponder aos tipos TypeScript definidos em `src/lib/supabase.ts`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Implantação
 
-## Deploy on Vercel
+A aplicação pode ser implantada em plataformas como Vercel ou Netlify.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Licença
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
