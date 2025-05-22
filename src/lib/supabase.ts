@@ -10,8 +10,35 @@ export type Event = {
   id: string;
   title: string;
   description: string;
-  date: string;
+  start_date: string;
+  end_date: string;
   location: string;
+  location_id?: string;
+  responsible_id: string;
+  responsible_name?: string;
+  work_fronts?: WorkFront[];
+  created_at?: string;
+}
+
+export type WorkFront = {
+  id: string;
+  event_id: string;
+  name: string;
+  description: string;
+  created_at?: string;
+}
+
+export type Location = {
+  id: string;
+  name: string;
+  address: string;
+  created_at?: string;
+}
+
+export type User = {
+  id: string;
+  name: string;
+  email: string;
   created_at?: string;
 }
 

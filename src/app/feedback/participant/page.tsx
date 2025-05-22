@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
+import { User } from "@/lib/supabase";
 
 // Custom rating component
 const RatingInput = ({
@@ -44,7 +45,8 @@ const RatingInput = ({
   );
 };
 
-export default function ParticipantFeedbackPage() {
+// Componente principal envolvido em Suspense
+function ParticipantFeedbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const eventId = searchParams.get("event");
@@ -52,6 +54,11 @@ export default function ParticipantFeedbackPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [events, setEvents] = useState<{ id: string, title: string }[]>([]);
+  const [currentEvent, setCurrentEvent] = useState<{ id: string, title: string } | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showUserForm, setShowUserForm] = useState(false);
+  const [newUser, setNewUser] = useState({ name: "", email: "" });
   const [formData, setFormData] = useState({
     event_id: eventId || "",
     name: "",
@@ -69,25 +76,130 @@ export default function ParticipantFeedbackPage() {
         const { data, error } = await supabase
           .from('events')
           .select('id, title')
-          .order('date', { ascending: false });
+          .order('start_date', { ascending: false });
 
         if (error) throw error;
         setEvents(data || []);
+
+        // Se temos um eventId na URL, verificar se ele existe nos dados e setar o evento atual
+        if (eventId) {
+          const selectedEvent = data?.find(event => event.id === eventId);
+          if (selectedEvent) {
+            setCurrentEvent(selectedEvent);
+          }
+        }
       } catch (error) {
         console.error("Error fetching events:", error);
       }
     };
 
     fetchEvents();
+  }, [eventId]);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .order('name');
+
+        if (error) throw error;
+        setUsers(data || []);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
+
+    fetchUsers();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Se o campo for event_id, atualiza também o currentEvent
+    if (name === "event_id") {
+      const selectedEvent = events.find(event => event.id === value);
+      setCurrentEvent(selectedEvent || null);
+    }
   };
 
   const handleRatingChange = (name: string, value: number) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleUserSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const userId = e.target.value;
+    if (userId === "new") {
+      setShowUserForm(true);
+      setSelectedUser(null);
+      setFormData(prev => ({
+        ...prev,
+        name: "",
+        email: ""
+      }));
+    } else if (userId) {
+      const user = users.find(u => u.id === userId);
+      if (user) {
+        setSelectedUser(user);
+        setFormData(prev => ({
+          ...prev,
+          name: user.name,
+          email: user.email
+        }));
+      }
+    } else {
+      setSelectedUser(null);
+      setFormData(prev => ({
+        ...prev,
+        name: "",
+        email: ""
+      }));
+    }
+  };
+
+  const handleNewUserChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setNewUser(prev => ({ ...prev, [name]: value }));
+  };
+
+  const addNewUser = async () => {
+    if (!newUser.name || !newUser.email) {
+      setError("Nome e email são obrigatórios");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .insert([newUser])
+        .select();
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        // Adiciona o novo usuário à lista e o seleciona
+        const createdUser = data[0] as User;
+        setUsers(prev => [...prev, createdUser]);
+        setSelectedUser(createdUser);
+        setFormData(prev => ({
+          ...prev,
+          name: createdUser.name,
+          email: createdUser.email
+        }));
+        setShowUserForm(false);
+        setNewUser({ name: "", email: "" });
+      }
+    } catch (error: any) {
+      console.error("Error adding user:", error);
+      setError(error.message || "Falha ao adicionar usuário");
+    }
+  };
+
+  const cancelAddUser = () => {
+    setShowUserForm(false);
+    setNewUser({ name: "", email: "" });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -126,6 +238,9 @@ export default function ParticipantFeedbackPage() {
       <Card>
         <CardHeader>
           <CardTitle>Feedback do Participante</CardTitle>
+          {currentEvent && (
+            <p className="text-muted-foreground">Evento: {currentEvent.title}</p>
+          )}
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-6">
@@ -155,29 +270,99 @@ export default function ParticipantFeedbackPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="name">Seu Nome</Label>
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="João Silva"
-                required
-              />
+              <Label htmlFor="user">Selecione um Participante</Label>
+              <select
+                id="user"
+                className="w-full p-2 border rounded-md mb-2"
+                onChange={handleUserSelect}
+                value={selectedUser?.id || ""}
+              >
+                <option value="">Selecione um participante ou crie um novo...</option>
+                <option value="new">➕ Adicionar novo participante</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name} ({user.email})
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="seu@email.com"
-                required
-              />
-            </div>
+            {showUserForm ? (
+              <div className="space-y-3 p-3 border rounded-md bg-gray-50">
+                <h3 className="font-medium">Adicionar Novo Participante</h3>
+
+                <div className="space-y-2">
+                  <Label htmlFor="newName">Nome</Label>
+                  <Input
+                    id="newName"
+                    name="name"
+                    value={newUser.name}
+                    onChange={handleNewUserChange}
+                    placeholder="João Silva"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="newEmail">Email</Label>
+                  <Input
+                    id="newEmail"
+                    name="email"
+                    type="email"
+                    value={newUser.email}
+                    onChange={handleNewUserChange}
+                    placeholder="joao@example.com"
+                    required
+                  />
+                </div>
+
+                <div className="flex space-x-2 pt-2">
+                  <Button
+                    type="button"
+                    onClick={addNewUser}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    Adicionar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={cancelAddUser}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="João Silva"
+                    required
+                    readOnly={!!selectedUser}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="seu@email.com"
+                    required
+                    readOnly={!!selectedUser}
+                  />
+                </div>
+              </>
+            )}
 
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Como você avaliaria os seguintes aspectos? (1-5)</h3>
@@ -235,5 +420,19 @@ export default function ParticipantFeedbackPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+// Componente de fallback para o Suspense
+function Loading() {
+  return <div className="container mx-auto py-10 px-4 text-center">Carregando formulário...</div>;
+}
+
+// Componente principal que exportamos
+export default function ParticipantFeedbackPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <ParticipantFeedbackContent />
+    </Suspense>
   );
 }

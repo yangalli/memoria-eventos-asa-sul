@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 
-export default function OrganizerFeedbackPage() {
+// Componente principal envolvido em Suspense
+function OrganizerFeedbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const eventId = searchParams.get("event");
@@ -33,7 +34,7 @@ export default function OrganizerFeedbackPage() {
         const { data, error } = await supabase
           .from('events')
           .select('id, title')
-          .order('date', { ascending: false });
+          .order('start_date', { ascending: false });
 
         if (error) throw error;
         setEvents(data || []);
@@ -228,5 +229,19 @@ export default function OrganizerFeedbackPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+// Componente de fallback para o Suspense
+function Loading() {
+  return <div className="container mx-auto py-10 px-4 text-center">Carregando formulário de organizador...</div>;
+}
+
+// Componente principal que exportamos
+export default function OrganizerFeedbackPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <OrganizerFeedbackContent />
+    </Suspense>
   );
 }
