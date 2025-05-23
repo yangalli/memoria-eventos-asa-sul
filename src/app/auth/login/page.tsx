@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/lib/supabase";
+import { supabase, User, UserRole } from "@/lib/supabase";
 import { FiUser, FiLock, FiX } from "react-icons/fi";
+import { useAuth } from "@/lib/auth-context";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({
@@ -31,7 +33,6 @@ export default function LoginPage() {
     setError("");
 
     try {
-      // Verificar usuário e senha no Supabase
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -44,41 +45,31 @@ export default function LoginPage() {
         throw new Error("Usuário não encontrado");
       }
 
-      // Em um sistema real, você deve usar autenticação do Supabase
-      // Aqui estamos apenas simulando a verificação para fins de demonstração
-      // Em produção, nunca armazene senhas em texto simples!
-
-      // Simulação de verificação de senha (em produção, use Auth)
       if (data.password !== formData.password) {
         throw new Error("Senha incorreta");
       }
 
-      // Log para depuração
-      console.log("Usuário autenticado:", {
+      // Garantir que o papel do usuário seja do tipo UserRole
+      let userRoleTyped: UserRole = 'user'; // Padrão para 'user'
+      const rawRole = data.role ? String(data.role).toLowerCase() : null;
+
+      if (rawRole === 'admin' || rawRole === 'secretary' || rawRole === 'user') {
+        userRoleTyped = rawRole as UserRole;
+      }
+
+      const userData: User = { // Especificar o tipo User aqui
         id: data.id,
         name: data.name,
         email: data.email,
-        role: data.role
-      });
-
-      // Garantir que o papel do usuário seja uma string válida
-      const userRole = data.role ? String(data.role).toLowerCase() : 'user';
-
-      // Salvar dados do usuário na sessão
-      const userData = {
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        role: userRole, // Garantir que estamos usando uma string
+        role: userRoleTyped,
       };
 
-      localStorage.setItem('user', JSON.stringify(userData));
+      login(userData); // Usar a função login do AuthContext
 
       // Redirecionar com base no papel do usuário
-      if (userRole === 'admin') {
+      if (userRoleTyped === 'admin') {
         router.push('/admin');
-      } else if (userRole === 'secretary') {
-        console.log("Redirecionando para /events como secretário");
+      } else if (userRoleTyped === 'secretary') {
         router.push('/events');
       } else {
         router.push('/feedback/participant');
