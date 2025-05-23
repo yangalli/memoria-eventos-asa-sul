@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Event, Location, User, supabase } from "@/lib/supabase";
-import { Calendar, Clock, MapPin, User as UserIcon } from "lucide-react";
+import { Calendar, Clock, MapPin, User as UserIcon, ArrowRight, Plus } from "lucide-react";
 
 type EventWithDetails = Event & {
   location_details?: Location;
@@ -74,7 +74,31 @@ export default function EventsPage() {
   }, []);
 
   if (loading) {
-    return <div className="container mx-auto py-10 px-4 text-center">Carregando eventos...</div>;
+    return (
+      <div className="container mx-auto py-20 px-4 text-center">
+        <div className="animate-pulse space-y-4 max-w-md mx-auto">
+          <div className="h-8 bg-gray-200 rounded w-3/4 mx-auto"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-16 px-4 text-center">
+        <div className="max-w-md mx-auto bg-red-50 border border-red-200 rounded-xl p-6 shadow-lg">
+          <h2 className="text-xl font-bold mb-4 text-red-700">Erro</h2>
+          <p className="text-red-600 mb-6">{error}</p>
+          <Link href="/">
+            <Button className="bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 transition-all duration-300">
+              Voltar para Início
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   // Formatar a data e hora
@@ -94,36 +118,45 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="container mx-auto py-10 px-4">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Eventos</h1>
+    <div className="container mx-auto py-12 px-4">
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-800 to-emerald-600 bg-clip-text text-transparent">
+          Eventos
+        </h1>
         <Link href="/events/new">
-          <Button>Adicionar Novo Evento</Button>
+          <Button className="bg-gradient-to-r from-emerald-800 to-emerald-600 hover:from-emerald-900 hover:to-emerald-700 transition-all duration-300 shadow-md hover:shadow-lg group">
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar Novo Evento
+          </Button>
         </Link>
       </div>
 
       {events.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {events.map((event) => {
             const startDateTime = formatDateTime(event.start_date);
             const endDateTime = formatDateTime(event.end_date);
             const sameDay = isSameDay(event.start_date, event.end_date);
 
             return (
-              <Card key={event.id}>
-                <CardHeader>
-                  <CardTitle>{event.title}</CardTitle>
-                  <CardDescription>
-                    <div className="flex items-center text-sm mt-2">
-                      <Calendar className="w-4 h-4 mr-1" />
+              <Card
+                key={event.id}
+                className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white rounded-xl"
+              >
+                <div className="h-2 bg-gradient-to-r from-emerald-900 to-emerald-700"></div>
+                <CardHeader className="pt-6">
+                  <CardTitle className="text-xl font-bold">{event.title}</CardTitle>
+                  <CardDescription className="text-sm space-y-1.5 mt-2">
+                    <div className="flex items-center">
+                      <Calendar className="w-4 h-4 mr-2 text-emerald-700" />
                       {sameDay ? (
                         <span>{startDateTime.date}</span>
                       ) : (
                         <span>{startDateTime.date} até {endDateTime.date}</span>
                       )}
                     </div>
-                    <div className="flex items-center text-sm mt-1">
-                      <Clock className="w-4 h-4 mr-1" />
+                    <div className="flex items-center">
+                      <Clock className="w-4 h-4 mr-2 text-emerald-700" />
                       {sameDay ? (
                         <span>{startDateTime.time} - {endDateTime.time}</span>
                       ) : (
@@ -131,28 +164,39 @@ export default function EventsPage() {
                       )}
                     </div>
                     {event.location_details && (
-                      <div className="flex items-center text-sm mt-1">
-                        <MapPin className="w-4 h-4 mr-1" />
-                        {event.location_details.name}
+                      <div className="flex items-center">
+                        <MapPin className="w-4 h-4 mr-2 text-emerald-700" />
+                        <span className="line-clamp-1">{event.location_details.name}</span>
                       </div>
                     )}
                     {event.responsible_details && (
-                      <div className="flex items-center text-sm mt-1">
-                        <UserIcon className="w-4 h-4 mr-1" />
-                        {event.responsible_details.name}
+                      <div className="flex items-center">
+                        <UserIcon className="w-4 h-4 mr-2 text-emerald-700" />
+                        <span className="line-clamp-1">{event.responsible_details.name}</span>
                       </div>
                     )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="line-clamp-3">{event.description}</p>
+                  <p className="line-clamp-3 text-gray-600">{event.description}</p>
                 </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Link href={`/events/${event.id}`}>
-                    <Button variant="outline">Ver Detalhes</Button>
+                <CardFooter className="flex justify-between gap-4">
+                  <Link href={`/events/${event.id}`} className="flex-1">
+                    <Button
+                      variant="outline"
+                      className="w-full border-2 hover:bg-emerald-50 hover:border-emerald-300 transition-all duration-300 group"
+                    >
+                      Ver Detalhes
+                      <ArrowRight className="ml-2 h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    </Button>
                   </Link>
-                  <Link href={`/events/${event.id}/report`}>
-                    <Button variant="secondary">Ver Relatório</Button>
+                  <Link href={`/events/${event.id}/report`} className="flex-1">
+                    <Button
+                      variant="secondary"
+                      className="w-full bg-gradient-to-r from-emerald-700 to-emerald-900 hover:from-emerald-800 hover:to-emerald-950 text-white transition-all duration-300"
+                    >
+                      Ver Relatório
+                    </Button>
                   </Link>
                 </CardFooter>
               </Card>
@@ -160,14 +204,22 @@ export default function EventsPage() {
           })}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground mb-4">Nenhum evento encontrado. Crie seu primeiro evento!</p>
+        <div className="text-center py-16 bg-gray-50 rounded-xl shadow-inner my-10">
+          <p className="text-muted-foreground mb-6 text-lg">Nenhum evento encontrado. Crie seu primeiro evento!</p>
+          <Link href="/events/new">
+            <Button className="bg-gradient-to-r from-emerald-800 to-emerald-600 hover:from-emerald-900 hover:to-emerald-700 transition-all duration-300">
+              <Plus className="mr-2 h-4 w-4" />
+              Criar Evento
+            </Button>
+          </Link>
         </div>
       )}
 
-      <div className="mt-8 text-center">
+      <div className="mt-10 text-center">
         <Link href="/">
-          <Button variant="ghost">Voltar para Início</Button>
+          <Button variant="ghost" className="hover:bg-emerald-50 text-emerald-800 transition-colors duration-300">
+            Voltar para Início
+          </Button>
         </Link>
       </div>
     </div>

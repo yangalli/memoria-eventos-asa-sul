@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 import { User } from "@/lib/supabase";
+import { Star, PlusCircle, X } from "lucide-react";
 
 // Custom rating component
 const RatingInput = ({
@@ -25,19 +26,19 @@ const RatingInput = ({
 }) => {
   return (
     <div className="space-y-2">
-      <Label htmlFor={name}>{label}</Label>
+      <Label htmlFor={name} className="text-sm font-medium">{label}</Label>
       <div className="flex space-x-2">
         {[1, 2, 3, 4, 5].map((rating) => (
           <button
             key={rating}
             type="button"
-            className={`w-10 h-10 rounded-full flex items-center justify-center ${value === rating
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted hover:bg-muted/80"
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${value === rating
+              ? "bg-emerald-700 text-white shadow-md"
+              : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
               }`}
             onClick={() => onChange(name, rating)}
           >
-            {rating}
+            <Star className={`h-5 w-5 ${value === rating ? "fill-white text-white" : "fill-transparent text-emerald-600"} ${value >= rating ? "opacity-100" : "opacity-70"}`} />
           </button>
         ))}
       </div>
@@ -235,29 +236,36 @@ function ParticipantFeedbackContent() {
 
   return (
     <div className="container mx-auto py-10 px-4 max-w-2xl">
-      <Card>
-        <CardHeader>
-          <CardTitle>Feedback do Participante</CardTitle>
+      <h1 className="text-3xl font-bold mb-6 bg-gradient-to-r from-emerald-800 to-emerald-600 bg-clip-text text-transparent text-center">
+        Feedback do Participante
+      </h1>
+
+      <Card className="border-0 shadow-lg rounded-xl overflow-hidden pb-0">
+        <div className="h-2 bg-gradient-to-r from-emerald-900 to-emerald-700"></div>
+        <CardHeader className="py-4 border-emerald-100/20 bg-emerald-50/50">
+          <CardTitle className="text-xl text-emerald-800">Compartilhe sua Experiência</CardTitle>
+
           {currentEvent && (
-            <p className="text-muted-foreground">Evento: {currentEvent.title}</p>
+            <p className="text-emerald-700 font-medium">Evento: {currentEvent.title}</p>
           )}
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 pt-6">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {error}
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-center">
+                <X className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="event_id">Selecione o Evento</Label>
+              <Label htmlFor="event_id" className="text-sm font-medium">Selecione o Evento</Label>
               <select
                 id="event_id"
                 name="event_id"
                 value={formData.event_id}
                 onChange={handleChange}
-                className="w-full p-2 border rounded-md"
+                className="w-full p-2 border rounded-md border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30 focus:outline-none focus:ring focus:ring-opacity-50"
                 required
               >
                 <option value="">Selecione um evento...</option>
@@ -270,10 +278,10 @@ function ParticipantFeedbackContent() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="user">Selecione um Participante</Label>
+              <Label htmlFor="user" className="text-sm font-medium">Selecione um Participante</Label>
               <select
                 id="user"
-                className="w-full p-2 border rounded-md mb-2"
+                className="w-full p-2 border rounded-md border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30 focus:outline-none focus:ring focus:ring-opacity-50 mb-2"
                 onChange={handleUserSelect}
                 value={selectedUser?.id || ""}
               >
@@ -288,23 +296,27 @@ function ParticipantFeedbackContent() {
             </div>
 
             {showUserForm ? (
-              <div className="space-y-3 p-3 border rounded-md bg-gray-50">
-                <h3 className="font-medium">Adicionar Novo Participante</h3>
+              <div className="space-y-3 p-4 border rounded-xl bg-emerald-50/50 border-emerald-100 shadow-sm">
+                <h3 className="font-medium text-emerald-800 flex items-center gap-2">
+                  <PlusCircle className="h-4 w-4" />
+                  Adicionar Novo Participante
+                </h3>
 
                 <div className="space-y-2">
-                  <Label htmlFor="newName">Nome</Label>
+                  <Label htmlFor="newName" className="text-sm font-medium">Nome</Label>
                   <Input
                     id="newName"
                     name="name"
                     value={newUser.name}
                     onChange={handleNewUserChange}
                     placeholder="João Silva"
+                    className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30"
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="newEmail">Email</Label>
+                  <Label htmlFor="newEmail" className="text-sm font-medium">Email</Label>
                   <Input
                     id="newEmail"
                     name="email"
@@ -312,6 +324,7 @@ function ParticipantFeedbackContent() {
                     value={newUser.email}
                     onChange={handleNewUserChange}
                     placeholder="joao@example.com"
+                    className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30"
                     required
                   />
                 </div>
@@ -320,7 +333,7 @@ function ParticipantFeedbackContent() {
                   <Button
                     type="button"
                     onClick={addNewUser}
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white"
                   >
                     Adicionar
                   </Button>
@@ -328,6 +341,7 @@ function ParticipantFeedbackContent() {
                     type="button"
                     variant="outline"
                     onClick={cancelAddUser}
+                    className="border-emerald-300 hover:bg-emerald-50 text-emerald-700"
                   >
                     Cancelar
                   </Button>
@@ -336,20 +350,21 @@ function ParticipantFeedbackContent() {
             ) : (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nome</Label>
+                  <Label htmlFor="name" className="text-sm font-medium">Nome</Label>
                   <Input
                     id="name"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
                     placeholder="João Silva"
+                    className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30"
                     required
                     readOnly={!!selectedUser}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                   <Input
                     id="email"
                     name="email"
@@ -357,6 +372,7 @@ function ParticipantFeedbackContent() {
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="seu@email.com"
+                    className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30"
                     required
                     readOnly={!!selectedUser}
                   />
@@ -364,8 +380,8 @@ function ParticipantFeedbackContent() {
               </>
             )}
 
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Como você avaliaria os seguintes aspectos? (1-5)</h3>
+            <div className="space-y-4 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+              <h3 className="text-lg font-medium text-emerald-800">Como você avaliaria os seguintes aspectos?</h3>
 
               <RatingInput
                 name="enjoyed_art"
@@ -397,23 +413,26 @@ function ParticipantFeedbackContent() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="comments">Comentários Adicionais</Label>
+              <Label htmlFor="comments" className="text-sm font-medium">Comentários Adicionais</Label>
               <Textarea
                 id="comments"
                 name="comments"
                 value={formData.comments}
                 onChange={handleChange}
                 placeholder="Compartilhe seus pensamentos sobre o evento..."
+                className="min-h-32 border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30"
                 rows={4}
               />
             </div>
           </CardContent>
 
-          <CardFooter className="flex justify-between">
+          <CardFooter className="flex justify-between bg-emerald-50/50 border-t border-emerald-100/20 p-6 mt-6">
             <Link href="/">
-              <Button type="button" variant="outline">Cancelar</Button>
+              <Button type="button" variant="outline" className="border-emerald-300 hover:bg-emerald-50 text-emerald-700">
+                Cancelar
+              </Button>
             </Link>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} className="bg-emerald-700 hover:bg-emerald-800 text-white">
               {isSubmitting ? "Enviando..." : "Enviar Feedback"}
             </Button>
           </CardFooter>
@@ -425,7 +444,15 @@ function ParticipantFeedbackContent() {
 
 // Componente de fallback para o Suspense
 function Loading() {
-  return <div className="container mx-auto py-10 px-4 text-center">Carregando formulário...</div>;
+  return (
+    <div className="container mx-auto py-10 px-4 text-center">
+      <div className="animate-pulse space-y-4 max-w-md mx-auto">
+        <div className="h-8 bg-emerald-200 rounded w-3/4 mx-auto"></div>
+        <div className="h-64 bg-emerald-200/50 rounded"></div>
+        <div className="h-32 bg-emerald-200/50 rounded"></div>
+      </div>
+    </div>
+  );
 }
 
 // Componente principal que exportamos

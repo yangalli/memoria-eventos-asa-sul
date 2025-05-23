@@ -35,10 +35,13 @@ export type Location = {
   created_at?: string;
 }
 
+export type UserRole = 'admin' | 'secretary' | 'user';
+
 export type User = {
   id: string;
   name: string;
   email: string;
+  role?: UserRole;
   created_at?: string;
 }
 
