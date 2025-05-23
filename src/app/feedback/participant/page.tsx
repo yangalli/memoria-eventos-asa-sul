@@ -11,6 +11,13 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 import { User } from "@/lib/supabase";
 import { Star, PlusCircle, X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Custom rating component
 const RatingInput = ({
@@ -82,18 +89,17 @@ function ParticipantFeedbackContent() {
         if (error) throw error;
         setEvents(data || []);
 
-        // Se temos um eventId na URL, verificar se ele existe nos dados e setar o evento atual
         if (eventId) {
           const selectedEvent = data?.find(event => event.id === eventId);
           if (selectedEvent) {
             setCurrentEvent(selectedEvent);
+            setFormData(prev => ({ ...prev, event_id: selectedEvent.id }));
           }
         }
       } catch (error) {
         console.error("Error fetching events:", error);
       }
     };
-
     fetchEvents();
   }, [eventId]);
 
@@ -104,34 +110,31 @@ function ParticipantFeedbackContent() {
           .from('users')
           .select('*')
           .order('name');
-
         if (error) throw error;
         setUsers(data || []);
       } catch (error) {
         console.error("Error fetching users:", error);
       }
     };
-
     fetchUsers();
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
-    // Se o campo for event_id, atualiza também o currentEvent
-    if (name === "event_id") {
-      const selectedEvent = events.find(event => event.id === value);
-      setCurrentEvent(selectedEvent || null);
-    }
+  const handleEventSelectChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, event_id: value }));
+    const selectedEvent = events.find(event => event.id === value);
+    setCurrentEvent(selectedEvent || null);
   };
 
   const handleRatingChange = (name: string, value: number) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleUserSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const userId = e.target.value;
+  const handleUserSelectChange = (userId: string) => {
     if (userId === "new") {
       setShowUserForm(true);
       setSelectedUser(null);
@@ -180,7 +183,6 @@ function ParticipantFeedbackContent() {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        // Adiciona o novo usuário à lista e o seleciona
         const createdUser = data[0] as User;
         setUsers(prev => [...prev, createdUser]);
         setSelectedUser(createdUser);
@@ -209,7 +211,6 @@ function ParticipantFeedbackContent() {
     setError("");
 
     try {
-      // Validate ratings - all should be selected
       if (formData.enjoyed_art === 0 || formData.enjoyed_food === 0 ||
         formData.enjoyed_group === 0 || formData.enjoyed_conversations === 0) {
         throw new Error("Por favor, avalie todas as categorias");
@@ -224,7 +225,6 @@ function ParticipantFeedbackContent() {
 
       console.log("Feedback submitted:", data);
 
-      // Redirect to thank you page
       router.push("/feedback/thankyou");
     } catch (error: any) {
       console.error("Error submitting feedback:", error);
@@ -244,7 +244,6 @@ function ParticipantFeedbackContent() {
         <div className="h-2 bg-gradient-to-r from-emerald-900 to-emerald-700"></div>
         <CardHeader className="py-4 border-emerald-100/20 bg-emerald-50/50">
           <CardTitle className="text-xl text-emerald-800">Compartilhe sua Experiência</CardTitle>
-
           {currentEvent && (
             <p className="text-emerald-700 font-medium">Evento: {currentEvent.title}</p>
           )}
@@ -260,39 +259,62 @@ function ParticipantFeedbackContent() {
 
             <div className="space-y-2">
               <Label htmlFor="event_id" className="text-sm font-medium">Selecione o Evento</Label>
-              <select
-                id="event_id"
-                name="event_id"
+              <Select
                 value={formData.event_id}
-                onChange={handleChange}
-                className="w-full p-2 border rounded-md border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30 focus:outline-none focus:ring focus:ring-opacity-50"
+                onValueChange={handleEventSelectChange}
                 required
               >
-                <option value="">Selecione um evento...</option>
-                {events.map((event) => (
-                  <option key={event.id} value={event.id}>
-                    {event.title}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full p-2 border rounded-md border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30 focus:outline-none focus:ring focus:ring-opacity-50 bg-white">
+                  <SelectValue placeholder="Selecione um evento..." />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-emerald-200/70">
+                  {events.length === 0 && (
+                    <SelectItem value="loading_events" disabled className="text-gray-500">
+                      Carregando eventos...
+                    </SelectItem>
+                  )}
+                  {events.map((event) => (
+                    <SelectItem
+                      key={event.id}
+                      value={event.id}
+                      className="hover:bg-emerald-50 focus:bg-emerald-50 cursor-pointer"
+                    >
+                      {event.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="user" className="text-sm font-medium">Selecione um Participante</Label>
-              <select
-                id="user"
-                className="w-full p-2 border rounded-md border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30 focus:outline-none focus:ring focus:ring-opacity-50 mb-2"
-                onChange={handleUserSelect}
+              <Label htmlFor="user_id" className="text-sm font-medium">Selecione um Participante</Label>
+              <Select
                 value={selectedUser?.id || ""}
+                onValueChange={handleUserSelectChange}
               >
-                <option value="">Selecione um participante ou crie um novo...</option>
-                <option value="new">➕ Adicionar novo participante</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name} ({user.email})
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full p-2 border rounded-md border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30 focus:outline-none focus:ring focus:ring-opacity-50 bg-white mb-2">
+                  <SelectValue placeholder="Selecione um participante ou crie um novo..." />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-emerald-200/70">
+                  {users.length === 0 && !showUserForm && (
+                    <SelectItem value="loading_users" disabled className="text-gray-500">
+                      Carregando participantes...
+                    </SelectItem>
+                  )}
+                  <SelectItem value="new" className="text-emerald-600 hover:bg-emerald-50 focus:bg-emerald-50 font-medium cursor-pointer">
+                    <PlusCircle className="h-4 w-4 mr-2 inline-block" /> Adicionar novo participante
+                  </SelectItem>
+                  {users.map((user) => (
+                    <SelectItem
+                      key={user.id}
+                      value={user.id}
+                      className="hover:bg-emerald-50 focus:bg-emerald-50 cursor-pointer"
+                    >
+                      {user.name} ({user.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {showUserForm ? (
@@ -355,7 +377,7 @@ function ParticipantFeedbackContent() {
                     id="name"
                     name="name"
                     value={formData.name}
-                    onChange={handleChange}
+                    onChange={handleInputChange}
                     placeholder="João Silva"
                     className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30"
                     required
@@ -370,7 +392,7 @@ function ParticipantFeedbackContent() {
                     name="email"
                     type="email"
                     value={formData.email}
-                    onChange={handleChange}
+                    onChange={handleInputChange}
                     placeholder="seu@email.com"
                     className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30"
                     required
@@ -418,7 +440,7 @@ function ParticipantFeedbackContent() {
                 id="comments"
                 name="comments"
                 value={formData.comments}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 placeholder="Compartilhe seus pensamentos sobre o evento..."
                 className="min-h-32 border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30"
                 rows={4}
