@@ -31,8 +31,8 @@ Uma aplicação web para registrar memórias de eventos para organizações volu
    NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon-do-supabase
    ```
 4. Execute o servidor de desenvolvimento:
-   ```bash
-   npm run dev
+```bash
+npm run dev
    ```
 
 ## Configuração do Supabase
