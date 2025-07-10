@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 import { ClipboardList, Users, MinusCircle, PlusCircle, DollarSign, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { User } from "@/lib/supabase";
 
 // Componente principal envolvido em Suspense
 function OrganizerFeedbackContent() {
@@ -29,6 +31,10 @@ function OrganizerFeedbackContent() {
     challenges: "",
     suggestions: "",
   });
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedOrganizer, setSelectedOrganizer] = useState<User | null>(null);
+  const [showOrganizerForm, setShowOrganizerForm] = useState(false);
+  const [newOrganizer, setNewOrganizer] = useState({ name: "", email: "" });
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -55,6 +61,22 @@ function OrganizerFeedbackContent() {
 
     fetchEvents();
   }, [eventId]);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .order('name');
+        if (error) throw error;
+        setUsers(data || []);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -83,6 +105,58 @@ function OrganizerFeedbackContent() {
       newVolunteers.splice(index, 1);
       setVolunteers(newVolunteers);
     }
+  };
+
+  const handleOrganizerSelectChange = (userId: string) => {
+    if (userId === "new") {
+      setShowOrganizerForm(true);
+      setSelectedOrganizer(null);
+      setFormData(prev => ({ ...prev, organizer_name: "" }));
+    } else if (userId) {
+      const user = users.find(u => u.id === userId);
+      if (user) {
+        setSelectedOrganizer(user);
+        setFormData(prev => ({ ...prev, organizer_name: user.name }));
+      }
+    } else {
+      setSelectedOrganizer(null);
+      setFormData(prev => ({ ...prev, organizer_name: "" }));
+    }
+  };
+
+  const handleNewOrganizerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setNewOrganizer(prev => ({ ...prev, [name]: value }));
+  };
+
+  const addNewOrganizer = async () => {
+    if (!newOrganizer.name || !newOrganizer.email) {
+      setError("Nome e email são obrigatórios");
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .insert([newOrganizer])
+        .select();
+      if (error) throw error;
+      if (data && data.length > 0) {
+        const createdUser = data[0] as User;
+        setUsers(prev => [...prev, createdUser]);
+        setSelectedOrganizer(createdUser);
+        setFormData(prev => ({ ...prev, organizer_name: createdUser.name }));
+        setShowOrganizerForm(false);
+        setNewOrganizer({ name: "", email: "" });
+      }
+    } catch (error: any) {
+      console.error("Error adding user:", error);
+      setError(error.message || "Falha ao adicionar organizador");
+    }
+  };
+
+  const cancelAddOrganizer = () => {
+    setShowOrganizerForm(false);
+    setNewOrganizer({ name: "", email: "" });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -166,16 +240,98 @@ function OrganizerFeedbackContent() {
 
             <div className="space-y-2">
               <Label htmlFor="organizer_name" className="text-sm font-medium">Seu Nome</Label>
-              <Input
-                id="organizer_name"
-                name="organizer_name"
-                value={formData.organizer_name}
-                onChange={handleChange}
-                placeholder="João Silva"
-                className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30"
-                required
-              />
+              <Select
+                value={selectedOrganizer?.id || ""}
+                onValueChange={handleOrganizerSelectChange}
+              >
+                <SelectTrigger className="w-full p-2 border rounded-md border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30 focus:outline-none focus:ring focus:ring-opacity-50 bg-white mb-2">
+                  <SelectValue placeholder="Selecione um organizador ou crie um novo..." />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-emerald-200/70">
+                  {users.length === 0 && !showOrganizerForm && (
+                    <SelectItem value="loading_users" disabled className="text-gray-500">
+                      Carregando organizadores...
+                    </SelectItem>
+                  )}
+                  <SelectItem value="new" className="text-emerald-600 hover:bg-emerald-50 focus:bg-emerald-50 font-medium cursor-pointer">
+                    <PlusCircle className="h-4 w-4 mr-2 inline-block" /> Adicionar novo organizador
+                  </SelectItem>
+                  {users.map((user) => (
+                    <SelectItem
+                      key={user.id}
+                      value={user.id}
+                      className="hover:bg-emerald-50 focus:bg-emerald-50 cursor-pointer"
+                    >
+                      {user.name} ({user.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+            {showOrganizerForm ? (
+              <div className="space-y-3 p-4 border rounded-xl bg-emerald-50/50 border-emerald-100 shadow-sm">
+                <h3 className="font-medium text-emerald-800 flex items-center gap-2">
+                  <PlusCircle className="h-4 w-4" />
+                  Adicionar Novo Organizador
+                </h3>
+                <div className="space-y-2">
+                  <Label htmlFor="newName" className="text-sm font-medium">Nome</Label>
+                  <Input
+                    id="newName"
+                    name="name"
+                    value={newOrganizer.name}
+                    onChange={handleNewOrganizerChange}
+                    placeholder="João Silva"
+                    className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newEmail" className="text-sm font-medium">Email</Label>
+                  <Input
+                    id="newEmail"
+                    name="email"
+                    type="email"
+                    value={newOrganizer.email}
+                    onChange={handleNewOrganizerChange}
+                    placeholder="joao@example.com"
+                    className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30"
+                    required
+                  />
+                </div>
+                <div className="flex space-x-2 pt-2">
+                  <Button
+                    type="button"
+                    onClick={addNewOrganizer}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white"
+                  >
+                    Adicionar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={cancelAddOrganizer}
+                    className="border-emerald-300 hover:bg-emerald-50 text-emerald-700"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="organizer_name" className="text-sm font-medium">Nome</Label>
+                <Input
+                  id="organizer_name"
+                  name="organizer_name"
+                  value={formData.organizer_name}
+                  onChange={handleChange}
+                  placeholder="João Silva"
+                  className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30"
+                  required
+                  readOnly={!!selectedOrganizer}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="total_expenses" className="text-sm font-medium">Despesas Totais</Label>

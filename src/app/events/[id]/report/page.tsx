@@ -1,19 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Event, ParticipantFeedback, OrganizerFeedback, Location, supabase } from "@/lib/supabase";
-import { Calendar, Clock, MapPin, ChevronLeft, BarChart2, MessageSquare, Clipboard } from "lucide-react";
+import { Calendar, Clock, MapPin, ChevronLeft, BarChart2, MessageSquare, Clipboard, Download } from "lucide-react";
+// PDF/Excel libs
+import * as XLSX from "xlsx";
 
-export default function EventReportPage({ params }: { params: { id: string } }) {
+export default function EventReportPage() {
+  const params = useParams();
+  const eventId = params.id as string;
   const [event, setEvent] = useState<Event | null>(null);
   const [location, setLocation] = useState<Location | null>(null);
   const [participantFeedback, setParticipantFeedback] = useState<ParticipantFeedback[]>([]);
   const [organizerFeedback, setOrganizerFeedback] = useState<OrganizerFeedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -22,7 +28,7 @@ export default function EventReportPage({ params }: { params: { id: string } }) 
         const { data: eventData, error: eventError } = await supabase
           .from('events')
           .select('*')
-          .eq('id', params.id)
+          .eq('id', eventId)
           .single();
 
         if (eventError) throw eventError;
@@ -45,7 +51,7 @@ export default function EventReportPage({ params }: { params: { id: string } }) 
         const { data: participantData, error: participantError } = await supabase
           .from('participant_feedback')
           .select('*')
-          .eq('event_id', params.id);
+          .eq('event_id', eventId);
 
         if (participantError) throw participantError;
         setParticipantFeedback(participantData || []);
@@ -54,7 +60,7 @@ export default function EventReportPage({ params }: { params: { id: string } }) 
         const { data: organizerData, error: organizerError } = await supabase
           .from('organizer_feedback')
           .select('*')
-          .eq('event_id', params.id);
+          .eq('event_id', eventId);
 
         if (organizerError) throw organizerError;
         setOrganizerFeedback(organizerData || []);
@@ -67,7 +73,7 @@ export default function EventReportPage({ params }: { params: { id: string } }) 
     };
 
     fetchData();
-  }, [params.id]);
+  }, [eventId]);
 
   const calculateAverageRatings = () => {
     if (participantFeedback.length === 0) return null;
@@ -106,6 +112,57 @@ export default function EventReportPage({ params }: { params: { id: string } }) 
   };
 
   const averageRatings = calculateAverageRatings();
+
+  // Handler para exportação PDF usando html2pdf.js
+  const handleExportPDF = async () => {
+    console.log("PDF button clicked");
+    try {
+      if (!reportRef.current) {
+        console.log("reportRef is null");
+        return;
+      }
+      const html2pdf = (await import("html2pdf.js")).default;
+      html2pdf()
+        .set({
+          margin: 0.5,
+          filename: `relatorio-evento-${event?.title || eventId}.pdf`,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: "#fff" },
+          jsPDF: { unit: "in", format: "a4", orientation: "portrait" }
+        })
+        .from(reportRef.current)
+        .save();
+    } catch (err) {
+      console.error("PDF export error:", err);
+    }
+  };
+
+  const handleExportExcel = () => {
+    // Participantes
+    const participantSheet = XLSX.utils.json_to_sheet(participantFeedback.map(fb => ({
+      Nome: fb.name,
+      Email: fb.email,
+      "Arte": fb.enjoyed_art,
+      "Comida": fb.enjoyed_food,
+      "Grupo": fb.enjoyed_group,
+      "Conversas": fb.enjoyed_conversations,
+      "Média": ((fb.enjoyed_art + fb.enjoyed_food + fb.enjoyed_group + fb.enjoyed_conversations) / 4).toFixed(1),
+      "Comentários": fb.comments
+    })));
+    // Organizadores
+    const organizerSheet = XLSX.utils.json_to_sheet(organizerFeedback.map(fb => ({
+      "Organizador": fb.organizer_name,
+      "Despesas Totais": fb.total_expenses,
+      "Voluntários": fb.volunteers.join(", "),
+      "Desafios": fb.challenges,
+      "Sugestões": fb.suggestions
+    })));
+    // Workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, participantSheet, "Participantes");
+    XLSX.utils.book_append_sheet(wb, organizerSheet, "Organizadores");
+    XLSX.writeFile(wb, `relatorio-evento-${event?.title || eventId}.xlsx`);
+  };
 
   if (loading) {
     return (
@@ -148,20 +205,28 @@ export default function EventReportPage({ params }: { params: { id: string } }) 
 
   return (
     <div className="container mx-auto py-12 px-4">
-      <div className="flex flex-col gap-8 max-w-4xl mx-auto">
+      <div className="flex flex-col gap-8 max-w-4xl mx-auto" ref={reportRef}>
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-800 to-emerald-600 bg-clip-text text-transparent">
             {event.title} - Relatório
           </h1>
-          <Link href="/events">
-            <Button
-              variant="outline"
-              className="border-2 hover:bg-emerald-50 hover:border-emerald-300 transition-all duration-300 group"
-            >
-              <ChevronLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-              Voltar para Eventos
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExportPDF} className="flex items-center gap-2 border-emerald-300">
+              <Download className="h-4 w-4" /> PDF
             </Button>
-          </Link>
+            <Button variant="outline" onClick={handleExportExcel} className="flex items-center gap-2 border-emerald-300">
+              <Download className="h-4 w-4" /> Excel
+            </Button>
+            <Link href="/events">
+              <Button
+                variant="outline"
+                className="border-2 hover:bg-emerald-50 hover:border-emerald-300 transition-all duration-300 group"
+              >
+                <ChevronLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+                Voltar para Eventos
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <Card className="overflow-hidden border-0 shadow-lg rounded-xl">
@@ -303,7 +368,7 @@ export default function EventReportPage({ params }: { params: { id: string } }) 
           <div className="h-2 bg-gradient-to-r from-emerald-900 to-emerald-700"></div>
           <CardHeader className="flex flex-row items-center gap-2">
             <Clipboard className="h-5 w-5 text-emerald-700" />
-            <CardTitle className="text-emerald-800">Anotações dos Organizadores</CardTitle>
+            <CardTitle className="text-emerald-800">Anotações dos Coordenadores</CardTitle>
           </CardHeader>
           <CardContent>
             {organizerFeedback.length > 0 ? (

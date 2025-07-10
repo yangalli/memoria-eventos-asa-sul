@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Users, MapPin, Shield } from "lucide-react";
+import { Users, MapPin, Shield, Briefcase } from "lucide-react";
 
 export default function AdminDashboardPage() {
   return (
@@ -17,7 +17,7 @@ export default function AdminDashboardPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
         <Link href="/admin/users" legacyBehavior>
           <a className="block transform transition-all duration-300 hover:scale-105 focus:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-xl">
             <Card className="h-full shadow-xl rounded-xl overflow-hidden border-0 hover:shadow-2xl transition-shadow duration-300">
@@ -52,6 +52,26 @@ export default function AdminDashboardPage() {
                 <p>
                   Cadastre e gerencie os locais onde os eventos acontecem.
                   Mantenha as informações de endereço atualizadas.
+                </p>
+              </CardContent>
+            </Card>
+          </a>
+        </Link>
+
+        <Link href="/admin/work-fronts" legacyBehavior>
+          <a className="block transform transition-all duration-300 hover:scale-105 focus:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-xl">
+            <Card className="h-full shadow-xl rounded-xl overflow-hidden border-0 hover:shadow-2xl transition-shadow duration-300">
+              <div className="h-2 bg-gradient-to-r from-emerald-900 to-emerald-700"></div>
+              <CardHeader className="pb-2 bg-emerald-50/30">
+                <CardTitle className="text-2xl font-semibold text-emerald-800 flex items-center">
+                  <Briefcase className="h-7 w-7 mr-3 text-emerald-700" />
+                  Frentes de Trabalho
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 text-gray-700 bg-emerald-50/30">
+                <p>
+                  Gerencie as frentes de trabalho dos eventos.
+                  Defina responsáveis e organize as equipes.
                 </p>
               </CardContent>
             </Card>

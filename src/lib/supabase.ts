@@ -25,6 +25,8 @@ export type WorkFront = {
   event_id: string;
   name: string;
   description: string;
+  responsible_id?: string;
+  responsible_details?: User;
   created_at?: string;
 }
 

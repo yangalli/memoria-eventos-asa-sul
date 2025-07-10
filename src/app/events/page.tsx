@@ -4,8 +4,19 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Event, Location, User, supabase } from "@/lib/supabase";
-import { Calendar, Clock, MapPin, User as UserIcon, ArrowRight, Plus } from "lucide-react";
+import { Calendar, Clock, MapPin, User as UserIcon, ArrowRight, Plus, Edit, Trash2 } from "lucide-react";
 
 type EventWithDetails = Event & {
   location_details?: Location;
@@ -16,6 +27,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState<EventWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -72,6 +84,51 @@ export default function EventsPage() {
 
     fetchEvents();
   }, []);
+
+  const handleDelete = async (eventId: string) => {
+    setDeletingId(eventId);
+    try {
+      // Primeiro excluir frentes de trabalho relacionadas
+      const { error: workFrontsError } = await supabase
+        .from('work_fronts')
+        .delete()
+        .eq('event_id', eventId);
+
+      if (workFrontsError) throw workFrontsError;
+
+      // Depois excluir feedback de participantes
+      const { error: participantFeedbackError } = await supabase
+        .from('participant_feedback')
+        .delete()
+        .eq('event_id', eventId);
+
+      if (participantFeedbackError) throw participantFeedbackError;
+
+      // Depois excluir feedback de organizadores
+      const { error: organizerFeedbackError } = await supabase
+        .from('organizer_feedback')
+        .delete()
+        .eq('event_id', eventId);
+
+      if (organizerFeedbackError) throw organizerFeedbackError;
+
+      // Por fim, excluir o evento
+      const { error: eventError } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', eventId);
+
+      if (eventError) throw eventError;
+
+      // Remover o evento da lista local
+      setEvents(events => events.filter(event => event.id !== eventId));
+    } catch (error: any) {
+      console.error("Erro ao excluir evento:", error);
+      setError(error.message || "Erro ao excluir evento");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -131,12 +188,19 @@ export default function EventsPage() {
         </Link>
       </div>
 
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          {error}
+        </div>
+      )}
+
       {events.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {events.map((event) => {
             const startDateTime = formatDateTime(event.start_date);
             const endDateTime = formatDateTime(event.end_date);
             const sameDay = isSameDay(event.start_date, event.end_date);
+            const isDeleting = deletingId === event.id;
 
             return (
               <Card
@@ -145,7 +209,57 @@ export default function EventsPage() {
               >
                 <div className="h-2 bg-gradient-to-r from-emerald-900 to-emerald-700"></div>
                 <CardHeader className="pt-6">
-                  <CardTitle className="text-xl font-bold">{event.title}</CardTitle>
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="text-xl font-bold flex-1">{event.title}</CardTitle>
+                    <div className="flex gap-2 ml-2">
+                      <Link href={`/events/${event.id}/edit`}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 w-8 p-0 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300"
+                          title="Editar evento"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      </Link>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isDeleting}
+                            className="h-8 w-8 p-0 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 disabled:opacity-50"
+                            title="Excluir evento"
+                          >
+                            {isDeleting ? (
+                              <div className="h-3 w-3 animate-spin border border-red-400 border-t-transparent rounded-full" />
+                            ) : (
+                              <Trash2 className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Excluir Evento</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja excluir o evento "{event.title}"?
+                              Esta ação não pode ser desfeita e removerá todos os dados relacionados,
+                              incluindo feedbacks e frentes de trabalho.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(event.id)}
+                              className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
                   <CardDescription className="text-sm space-y-1.5 mt-2">
                     <div className="flex items-center">
                       <Calendar className="w-4 h-4 mr-2 text-emerald-700" />

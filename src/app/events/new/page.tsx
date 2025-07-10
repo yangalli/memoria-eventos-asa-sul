@@ -38,6 +38,7 @@ export default function NewEventPage() {
     id?: string;
     name: string;
     description: string;
+    responsible_id?: string;
   }[]>([]);
 
   useEffect(() => {
@@ -77,7 +78,7 @@ export default function NewEventPage() {
   };
 
   const addWorkFront = () => {
-    setWorkFronts([...workFronts, { name: "", description: "" }]);
+    setWorkFronts([...workFronts, { name: "", description: "", responsible_id: "" }]);
   };
 
   const removeWorkFront = (index: number) => {
@@ -288,6 +289,7 @@ export default function NewEventPage() {
                 <Briefcase className="h-5 w-5 mr-2 text-emerald-700" />
                 Frentes de Trabalho (Opcional)
               </h3>
+
               {workFronts.map((front, index) => (
                 <div key={index} className="p-4 border rounded-lg bg-emerald-50/50 border-emerald-200/70 space-y-3 shadow-sm">
                   <div className="flex justify-between items-center">
@@ -323,6 +325,31 @@ export default function NewEventPage() {
                       rows={2}
                       className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30 bg-white"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`wf-responsible-${index}`} className="text-sm font-medium text-gray-700">Responsável (Opcional)</Label>
+                    <Select
+                      value={front.responsible_id || "none"}
+                      onValueChange={(value) => updateWorkFront(index, "responsible_id", value === "none" ? "" : value)}
+                    >
+                      <SelectTrigger className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30 bg-white">
+                        <SelectValue placeholder="Selecione um responsável..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-emerald-200/70">
+                        <SelectItem value="none" className="hover:bg-emerald-50 focus:bg-emerald-50 cursor-pointer">
+                          Nenhum responsável
+                        </SelectItem>
+                        {users.filter(user => user.role === 'admin' || user.role === 'secretary').map((user) => (
+                          <SelectItem
+                            key={user.id}
+                            value={user.id}
+                            className="hover:bg-emerald-50 focus:bg-emerald-50 cursor-pointer"
+                          >
+                            {user.name} ({user.role}) {user.email ? `- ${user.email}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               ))}
