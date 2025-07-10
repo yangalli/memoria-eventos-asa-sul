@@ -6,6 +6,13 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+export type FeedbackQuestion = {
+  id?: string;
+  question: string;
+  event_id?: string;
+  created_at?: string;
+}
+
 export type Event = {
   id: string;
   title: string;
@@ -17,6 +24,7 @@ export type Event = {
   responsible_id: string;
   responsible_name?: string;
   work_fronts?: WorkFront[];
+  feedback_questions?: FeedbackQuestion[];
   created_at?: string;
 }
 
@@ -52,12 +60,13 @@ export type ParticipantFeedback = {
   event_id: string;
   name: string;
   email: string;
-  enjoyed_art: number;
-  enjoyed_food: number;
-  enjoyed_group: number;
-  enjoyed_conversations: number;
+  enjoyed_art?: number;
+  enjoyed_food?: number;
+  enjoyed_group?: number;
+  enjoyed_conversations?: number;
   comments: string;
   created_at?: string;
+  feedback_responses?: Record<string, number>; // Store responses to dynamic questions by question ID
 }
 
 export type OrganizerFeedback = {

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase, Location, User, Event } from "@/lib/supabase";
-import { PlusCircle, X, Edit, Briefcase, UserCircle, MapPinIcon } from "lucide-react";
+import { PlusCircle, X, Edit, Briefcase, UserCircle, MapPinIcon, MessageSquareText } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -49,6 +49,9 @@ export default function EditEventPage() {
 
   const [workFronts, setWorkFronts] = useState<WorkFront[]>([]);
   const [originalWorkFronts, setOriginalWorkFronts] = useState<WorkFront[]>([]);
+
+  const [feedbackQuestions, setFeedbackQuestions] = useState<{ id?: string; question: string; event_id?: string }[]>([]);
+  const [originalFeedbackQuestions, setOriginalFeedbackQuestions] = useState<{ id?: string; question: string; event_id?: string }[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,6 +94,18 @@ export default function EditEventPage() {
         const workFrontsFormatted = workFrontsData || [];
         setWorkFronts(workFrontsFormatted);
         setOriginalWorkFronts(workFrontsFormatted);
+
+        // Buscar perguntas de feedback
+        const { data: feedbackQuestionsData, error: feedbackQuestionsError } = await supabase
+          .from('feedback_questions')
+          .select('*')
+          .eq('event_id', eventId);
+
+        if (feedbackQuestionsError) throw feedbackQuestionsError;
+
+        const feedbackQuestionsFormatted = feedbackQuestionsData || [];
+        setFeedbackQuestions(feedbackQuestionsFormatted);
+        setOriginalFeedbackQuestions(feedbackQuestionsFormatted);
 
         // Buscar locais
         const { data: locationsData, error: locationsError } = await supabase
@@ -143,6 +158,25 @@ export default function EditEventPage() {
       [field]: value
     };
     setWorkFronts(updatedWorkFronts);
+  };
+
+  const addFeedbackQuestion = () => {
+    setFeedbackQuestions([...feedbackQuestions, { question: "" }]);
+  };
+
+  const removeFeedbackQuestion = (index: number) => {
+    const updatedQuestions = [...feedbackQuestions];
+    updatedQuestions.splice(index, 1);
+    setFeedbackQuestions(updatedQuestions);
+  };
+
+  const updateFeedbackQuestion = (index: number, value: string) => {
+    const updatedQuestions = [...feedbackQuestions];
+    updatedQuestions[index] = {
+      ...updatedQuestions[index],
+      question: value
+    };
+    setFeedbackQuestions(updatedQuestions);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -207,6 +241,48 @@ export default function EditEventPage() {
               name: workFront.name,
               description: workFront.description,
               responsible_id: workFront.responsible_id || null,
+              event_id: eventId
+            }]);
+          if (insertError) throw insertError;
+        }
+      }
+
+      // Gerenciar perguntas de feedback
+      const currentFeedbackQuestions = feedbackQuestions.filter(q => q.question.trim() !== "");
+
+      // Identificar perguntas para deletar
+      const feedbackQuestionsToDelete = originalFeedbackQuestions.filter(original =>
+        !currentFeedbackQuestions.find(current => current.id === original.id)
+      );
+
+      // Deletar perguntas removidas
+      for (const question of feedbackQuestionsToDelete) {
+        if (question.id) {
+          const { error: deleteError } = await supabase
+            .from('feedback_questions')
+            .delete()
+            .eq('id', question.id);
+          if (deleteError) throw deleteError;
+        }
+      }
+
+      // Atualizar ou inserir perguntas de feedback
+      for (const question of currentFeedbackQuestions) {
+        if (question.id) {
+          // Atualizar pergunta existente
+          const { error: updateError } = await supabase
+            .from('feedback_questions')
+            .update({
+              question: question.question
+            })
+            .eq('id', question.id);
+          if (updateError) throw updateError;
+        } else {
+          // Inserir nova pergunta
+          const { error: insertError } = await supabase
+            .from('feedback_questions')
+            .insert([{
+              question: question.question,
               event_id: eventId
             }]);
           if (insertError) throw insertError;
@@ -429,6 +505,61 @@ export default function EditEventPage() {
               >
                 <PlusCircle className="h-4 w-4" />
                 Adicionar Frente de Trabalho
+              </Button>
+            </div>
+
+            {/* Seção de Perguntas de Feedback */}
+            <div className="space-y-4 pt-4 border-t border-emerald-100">
+              <h3 className="text-lg font-semibold text-emerald-800 flex items-center">
+                <MessageSquareText className="h-5 w-5 mr-2 text-emerald-700" />
+                Perguntas de Feedback (Opcional)
+              </h3>
+
+              <p className="text-sm text-gray-600">
+                Adicione perguntas para o formulário de feedback dos participantes. Cada pergunta será avaliada em uma escala de 1 a 5.
+              </p>
+
+              {feedbackQuestions.length === 0 && (
+                <div className="text-center text-gray-500 py-4">
+                  Nenhuma pergunta de feedback adicionada. Adicione perguntas abaixo.
+                </div>
+              )}
+
+              {feedbackQuestions.map((question, index) => (
+                <div key={index} className="p-4 border rounded-lg bg-emerald-50/50 border-emerald-200/70 space-y-3 shadow-sm">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-md font-medium text-emerald-700">Pergunta #{index + 1}</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeFeedbackQuestion(index)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-100 h-8 w-8"
+                      aria-label="Remover Pergunta"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`question-${index}`} className="text-sm font-medium text-gray-700">Texto da Pergunta</Label>
+                    <Input
+                      id={`question-${index}`}
+                      value={question.question}
+                      onChange={(e) => updateFeedbackQuestion(index, e.target.value)}
+                      placeholder="Ex: Como você avaliaria a qualidade das apresentações?"
+                      className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30 bg-white"
+                    />
+                  </div>
+                </div>
+              ))}
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addFeedbackQuestion}
+                className="w-full mt-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 flex items-center justify-center gap-2"
+              >
+                <PlusCircle className="h-4 w-4" /> Adicionar Pergunta de Feedback
               </Button>
             </div>
           </CardContent>

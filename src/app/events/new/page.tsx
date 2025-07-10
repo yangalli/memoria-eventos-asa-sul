@@ -8,8 +8,8 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { supabase, Location, User } from "@/lib/supabase";
-import { PlusCircle, X, CalendarPlus, Briefcase, UserCircle, MapPinIcon } from "lucide-react";
+import { supabase, Location, User, FeedbackQuestion } from "@/lib/supabase";
+import { PlusCircle, X, CalendarPlus, Briefcase, UserCircle, MapPinIcon, MessageSquareText } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -41,6 +41,8 @@ export default function NewEventPage() {
     responsible_id?: string;
   }[]>([]);
 
+  const [feedbackQuestions, setFeedbackQuestions] = useState<FeedbackQuestion[]>([]);
+
   useEffect(() => {
     const fetchLocations = async () => {
       try {
@@ -68,8 +70,22 @@ export default function NewEventPage() {
       }
     };
 
+    const fetchFeedbackQuestions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('feedback_questions')
+          .select('*')
+          .order('id');
+        if (error) throw error;
+        setFeedbackQuestions(data || []);
+      } catch (error) {
+        console.error("Erro ao carregar perguntas de feedback:", error);
+      }
+    };
+
     fetchLocations();
     fetchUsers();
+    fetchFeedbackQuestions();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -94,6 +110,25 @@ export default function NewEventPage() {
       [field]: value
     };
     setWorkFronts(updatedWorkFronts);
+  };
+  
+  const addFeedbackQuestion = () => {
+    setFeedbackQuestions([...feedbackQuestions, { question: "" }]);
+  };
+
+  const removeFeedbackQuestion = (index: number) => {
+    const updatedQuestions = [...feedbackQuestions];
+    updatedQuestions.splice(index, 1);
+    setFeedbackQuestions(updatedQuestions);
+  };
+
+  const updateFeedbackQuestion = (index: number, value: string) => {
+    const updatedQuestions = [...feedbackQuestions];
+    updatedQuestions[index] = {
+      ...updatedQuestions[index],
+      question: value
+    };
+    setFeedbackQuestions(updatedQuestions);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,6 +157,7 @@ export default function NewEventPage() {
 
       const eventId = eventData[0].id;
 
+      // Insert work fronts
       if (workFronts.length > 0) {
         const validWorkFronts = workFronts.filter(wf => wf.name.trim() !== "");
         if (validWorkFronts.length > 0) {
@@ -135,6 +171,22 @@ export default function NewEventPage() {
           if (workFrontError) throw workFrontError;
         }
       }
+
+      // Insert feedback questions
+      if (feedbackQuestions.length > 0) {
+        const validQuestions = feedbackQuestions.filter(q => q.question.trim() !== "");
+        if (validQuestions.length > 0) {
+          const questionsWithEventId = validQuestions.map(question => ({
+            ...question,
+            event_id: eventId
+          }));
+          const { error: questionError } = await supabase
+            .from('feedback_questions')
+            .insert(questionsWithEventId);
+          if (questionError) throw questionError;
+        }
+      }
+      
       router.push("/events");
     } catch (error: any) {
       console.error("Erro ao criar evento:", error);
@@ -360,6 +412,61 @@ export default function NewEventPage() {
                 className="w-full mt-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 flex items-center justify-center gap-2"
               >
                 <PlusCircle className="h-4 w-4" /> Adicionar Frente de Trabalho
+              </Button>
+            </div>
+
+            {/* Seção de Perguntas de Feedback */}
+            <div className="space-y-4 pt-4 border-t border-emerald-100">
+              <h3 className="text-lg font-semibold text-emerald-800 flex items-center">
+                <MessageSquareText className="h-5 w-5 mr-2 text-emerald-700" />
+                Perguntas de Feedback (Opcional)
+              </h3>
+              
+              <p className="text-sm text-gray-600">
+                Adicione perguntas para o formulário de feedback dos participantes. Cada pergunta será avaliada em uma escala de 1 a 5.
+              </p>
+
+              {feedbackQuestions.length === 0 && (
+                <div className="text-center text-gray-500 py-4">
+                  Nenhuma pergunta de feedback adicionada. Adicione perguntas abaixo.
+                </div>
+              )}
+
+              {feedbackQuestions.map((question, index) => (
+                <div key={index} className="p-4 border rounded-lg bg-emerald-50/50 border-emerald-200/70 space-y-3 shadow-sm">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-md font-medium text-emerald-700">Pergunta #{index + 1}</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeFeedbackQuestion(index)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-100 h-8 w-8"
+                      aria-label="Remover Pergunta"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`question-${index}`} className="text-sm font-medium text-gray-700">Texto da Pergunta</Label>
+                    <Input
+                      id={`question-${index}`}
+                      value={question.question}
+                      onChange={(e) => updateFeedbackQuestion(index, e.target.value)}
+                      placeholder="Ex: Como você avaliaria a qualidade das apresentações?"
+                      className="border-emerald-200/70 focus:border-emerald-500 focus:ring-emerald-500/30 bg-white"
+                    />
+                  </div>
+                </div>
+              ))}
+              
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addFeedbackQuestion}
+                className="w-full mt-2 border-emerald-300 text-emerald-700 hover:bg-emerald-50 flex items-center justify-center gap-2"
+              >
+                <PlusCircle className="h-4 w-4" /> Adicionar Pergunta de Feedback
               </Button>
             </div>
           </CardContent>

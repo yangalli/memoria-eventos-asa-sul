@@ -67,15 +67,14 @@ function ParticipantFeedbackContent() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showUserForm, setShowUserForm] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "" });
+  const [feedbackQuestions, setFeedbackQuestions] = useState<{ id: string, question: string }[]>([]);
   const [formData, setFormData] = useState({
     event_id: eventId || "",
     name: "",
     email: "",
-    enjoyed_art: 0,
-    enjoyed_food: 0,
-    enjoyed_group: 0,
-    enjoyed_conversations: 0,
     comments: "",
+    feedback_responses: {} as Record<string, number>,
+    // Removendo campos estáticos e substituindo pelo feedback_responses dinâmico
   });
 
   useEffect(() => {
@@ -94,12 +93,42 @@ function ParticipantFeedbackContent() {
           if (selectedEvent) {
             setCurrentEvent(selectedEvent);
             setFormData(prev => ({ ...prev, event_id: selectedEvent.id }));
+
+            // Fetch feedback questions for this event
+            fetchFeedbackQuestions(selectedEvent.id);
           }
         }
       } catch (error) {
         console.error("Error fetching events:", error);
       }
     };
+
+    const fetchFeedbackQuestions = async (eventId: string) => {
+      try {
+        const { data, error } = await supabase
+          .from('feedback_questions')
+          .select('id, question')
+          .eq('event_id', eventId);
+
+        if (error) throw error;
+
+        setFeedbackQuestions(data || []);
+
+        // Initialize feedback responses object with question IDs
+        const initialResponses: Record<string, number> = {};
+        data?.forEach(question => {
+          initialResponses[question.id] = 0;
+        });
+
+        setFormData(prev => ({
+          ...prev,
+          feedback_responses: initialResponses
+        }));
+      } catch (error) {
+        console.error("Error fetching feedback questions:", error);
+      }
+    };
+
     fetchEvents();
   }, [eventId]);
 
@@ -131,7 +160,15 @@ function ParticipantFeedbackContent() {
   };
 
   const handleRatingChange = (name: string, value: number) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name.includes('feedback_responses.')) {
+      // This is for handling dynamic feedback responses
+      const questionId = name.replace('feedback_responses.', '');
+      const updatedResponses = { ...formData.feedback_responses, [questionId]: value };
+      setFormData((prev) => ({ ...prev, feedback_responses: updatedResponses }));
+    } else {
+      // For other form fields (legacy support)
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleUserSelectChange = (userId: string) => {
@@ -211,9 +248,10 @@ function ParticipantFeedbackContent() {
     setError("");
 
     try {
-      if (formData.enjoyed_art === 0 || formData.enjoyed_food === 0 ||
-        formData.enjoyed_group === 0 || formData.enjoyed_conversations === 0) {
-        throw new Error("Por favor, avalie todas as categorias");
+      // Verificar se todas as perguntas de feedback foram respondidas
+      const unansweredQuestions = Object.entries(formData.feedback_responses).filter(([_, value]) => value === 0);
+      if (unansweredQuestions.length > 0) {
+        throw new Error("Por favor, responda todas as perguntas de avaliação");
       }
 
       const { data, error: insertError } = await supabase
@@ -405,33 +443,24 @@ function ParticipantFeedbackContent() {
             <div className="space-y-4 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
               <h3 className="text-lg font-medium text-emerald-800">Como você avaliaria os seguintes aspectos?</h3>
 
-              <RatingInput
-                name="enjoyed_art"
-                label="Arte e Decorações"
-                value={formData.enjoyed_art}
-                onChange={handleRatingChange}
-              />
-
-              <RatingInput
-                name="enjoyed_food"
-                label="Comida e Bebidas"
-                value={formData.enjoyed_food}
-                onChange={handleRatingChange}
-              />
-
-              <RatingInput
-                name="enjoyed_group"
-                label="Experiência em Grupo"
-                value={formData.enjoyed_group}
-                onChange={handleRatingChange}
-              />
-
-              <RatingInput
-                name="enjoyed_conversations"
-                label="Conversas e Interações"
-                value={formData.enjoyed_conversations}
-                onChange={handleRatingChange}
-              />
+              {feedbackQuestions.length === 0 ? (
+                <div className="text-center p-4 text-gray-500">
+                  Este evento não possui perguntas de feedback definidas.
+                </div>
+              ) : (
+                feedbackQuestions.map((question) => (
+                  <RatingInput
+                    key={question.id}
+                    name={question.id}
+                    label={question.question}
+                    value={formData.feedback_responses[question.id] || 0}
+                    onChange={(id, value) => {
+                      const updatedResponses = { ...formData.feedback_responses, [id]: value };
+                      setFormData(prev => ({ ...prev, feedback_responses: updatedResponses }));
+                    }}
+                  />
+                ))
+              )}
             </div>
 
             <div className="space-y-2">
