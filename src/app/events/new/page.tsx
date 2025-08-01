@@ -70,22 +70,10 @@ export default function NewEventPage() {
       }
     };
 
-    const fetchFeedbackQuestions = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('feedback_questions')
-          .select('*')
-          .order('id');
-        if (error) throw error;
-        setFeedbackQuestions(data || []);
-      } catch (error) {
-        console.error("Erro ao carregar perguntas de feedback:", error);
-      }
-    };
+
 
     fetchLocations();
     fetchUsers();
-    fetchFeedbackQuestions();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -111,7 +99,7 @@ export default function NewEventPage() {
     };
     setWorkFronts(updatedWorkFronts);
   };
-  
+
   const addFeedbackQuestion = () => {
     setFeedbackQuestions([...feedbackQuestions, { question: "" }]);
   };
@@ -145,9 +133,16 @@ export default function NewEventPage() {
         throw new Error("A data de término deve ser posterior à data de início.");
       }
 
+      // Prepare event data with feedback questions
+      const validFeedbackQuestions = feedbackQuestions.filter(q => q.question.trim() !== "");
+      const eventDataWithFeedback = {
+        ...formData,
+        feedback_questions: validFeedbackQuestions
+      };
+
       const { data: eventData, error: eventError } = await supabase
         .from('events')
-        .insert([formData])
+        .insert([eventDataWithFeedback])
         .select();
 
       if (eventError) throw eventError;
@@ -173,20 +168,8 @@ export default function NewEventPage() {
       }
 
       // Insert feedback questions
-      if (feedbackQuestions.length > 0) {
-        const validQuestions = feedbackQuestions.filter(q => q.question.trim() !== "");
-        if (validQuestions.length > 0) {
-          const questionsWithEventId = validQuestions.map(question => ({
-            ...question,
-            event_id: eventId
-          }));
-          const { error: questionError } = await supabase
-            .from('feedback_questions')
-            .insert(questionsWithEventId);
-          if (questionError) throw questionError;
-        }
-      }
-      
+
+
       router.push("/events");
     } catch (error: any) {
       console.error("Erro ao criar evento:", error);
@@ -421,7 +404,7 @@ export default function NewEventPage() {
                 <MessageSquareText className="h-5 w-5 mr-2 text-emerald-700" />
                 Perguntas de Feedback (Opcional)
               </h3>
-              
+
               <p className="text-sm text-gray-600">
                 Adicione perguntas para o formulário de feedback dos participantes. Cada pergunta será avaliada em uma escala de 1 a 5.
               </p>
@@ -459,7 +442,7 @@ export default function NewEventPage() {
                   </div>
                 </div>
               ))}
-              
+
               <Button
                 type="button"
                 variant="outline"

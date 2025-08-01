@@ -7,10 +7,7 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export type FeedbackQuestion = {
-  id?: string;
   question: string;
-  event_id?: string;
-  created_at?: string;
 }
 
 export type Event = {

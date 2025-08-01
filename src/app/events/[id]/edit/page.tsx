@@ -95,15 +95,8 @@ export default function EditEventPage() {
         setWorkFronts(workFrontsFormatted);
         setOriginalWorkFronts(workFrontsFormatted);
 
-        // Buscar perguntas de feedback
-        const { data: feedbackQuestionsData, error: feedbackQuestionsError } = await supabase
-          .from('feedback_questions')
-          .select('*')
-          .eq('event_id', eventId);
-
-        if (feedbackQuestionsError) throw feedbackQuestionsError;
-
-        const feedbackQuestionsFormatted = feedbackQuestionsData || [];
+        // Buscar perguntas de feedback do evento
+        const feedbackQuestionsFormatted = eventData.feedback_questions || [];
         setFeedbackQuestions(feedbackQuestionsFormatted);
         setOriginalFeedbackQuestions(feedbackQuestionsFormatted);
 
@@ -247,47 +240,13 @@ export default function EditEventPage() {
         }
       }
 
-      // Gerenciar perguntas de feedback
-      const currentFeedbackQuestions = feedbackQuestions.filter(q => q.question.trim() !== "");
-
-      // Identificar perguntas para deletar
-      const feedbackQuestionsToDelete = originalFeedbackQuestions.filter(original =>
-        !currentFeedbackQuestions.find(current => current.id === original.id)
-      );
-
-      // Deletar perguntas removidas
-      for (const question of feedbackQuestionsToDelete) {
-        if (question.id) {
-          const { error: deleteError } = await supabase
-            .from('feedback_questions')
-            .delete()
-            .eq('id', question.id);
-          if (deleteError) throw deleteError;
-        }
-      }
-
-      // Atualizar ou inserir perguntas de feedback
-      for (const question of currentFeedbackQuestions) {
-        if (question.id) {
-          // Atualizar pergunta existente
-          const { error: updateError } = await supabase
-            .from('feedback_questions')
-            .update({
-              question: question.question
-            })
-            .eq('id', question.id);
-          if (updateError) throw updateError;
-        } else {
-          // Inserir nova pergunta
-          const { error: insertError } = await supabase
-            .from('feedback_questions')
-            .insert([{
-              question: question.question,
-              event_id: eventId
-            }]);
-          if (insertError) throw insertError;
-        }
-      }
+      // Atualizar perguntas de feedback no evento
+      const validFeedbackQuestions = feedbackQuestions.filter(q => q.question.trim() !== "");
+      const { error: updateFeedbackError } = await supabase
+        .from('events')
+        .update({ feedback_questions: validFeedbackQuestions })
+        .eq('id', eventId);
+      if (updateFeedbackError) throw updateFeedbackError;
 
       router.push("/events");
     } catch (error: any) {

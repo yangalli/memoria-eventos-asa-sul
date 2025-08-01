@@ -67,7 +67,7 @@ function ParticipantFeedbackContent() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showUserForm, setShowUserForm] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "" });
-  const [feedbackQuestions, setFeedbackQuestions] = useState<{ id: string, question: string }[]>([]);
+  const [feedbackQuestions, setFeedbackQuestions] = useState<{ question: string }[]>([]);
   const [formData, setFormData] = useState({
     event_id: eventId || "",
     name: "",
@@ -106,18 +106,20 @@ function ParticipantFeedbackContent() {
     const fetchFeedbackQuestions = async (eventId: string) => {
       try {
         const { data, error } = await supabase
-          .from('feedback_questions')
-          .select('id, question')
-          .eq('event_id', eventId);
+          .from('events')
+          .select('feedback_questions')
+          .eq('id', eventId)
+          .single();
 
         if (error) throw error;
 
-        setFeedbackQuestions(data || []);
+        const questions = data?.feedback_questions || [];
+        setFeedbackQuestions(questions);
 
-        // Initialize feedback responses object with question IDs
+        // Initialize feedback responses object with question indices
         const initialResponses: Record<string, number> = {};
-        data?.forEach(question => {
-          initialResponses[question.id] = 0;
+        questions.forEach((question: any, index: number) => {
+          initialResponses[`question_${index}`] = 0;
         });
 
         setFormData(prev => ({
@@ -249,14 +251,25 @@ function ParticipantFeedbackContent() {
 
     try {
       // Verificar se todas as perguntas de feedback foram respondidas
-      const unansweredQuestions = Object.entries(formData.feedback_responses).filter(([_, value]) => value === 0);
+      const unansweredQuestions = Object.entries(formData.feedback_responses).filter(([key, value]) =>
+        key.startsWith('question_') && value === 0
+      );
       if (unansweredQuestions.length > 0) {
         throw new Error("Por favor, responda todas as perguntas de avaliação");
       }
 
+      // Prepare data with default values for legacy fields
+      const feedbackData = {
+        ...formData,
+        enjoyed_art: 1, // Default value for legacy field (must be 1-5)
+        enjoyed_food: 1, // Default value for legacy field (must be 1-5)
+        enjoyed_group: 1, // Default value for legacy field (must be 1-5)
+        enjoyed_conversations: 1, // Default value for legacy field (must be 1-5)
+      };
+
       const { data, error: insertError } = await supabase
         .from('participant_feedback')
-        .insert([formData])
+        .insert([feedbackData])
         .select();
 
       if (insertError) throw insertError;
@@ -448,14 +461,14 @@ function ParticipantFeedbackContent() {
                   Este evento não possui perguntas de feedback definidas.
                 </div>
               ) : (
-                feedbackQuestions.map((question) => (
+                feedbackQuestions.map((question, index) => (
                   <RatingInput
-                    key={question.id}
-                    name={question.id}
+                    key={index}
+                    name={`question_${index}`}
                     label={question.question}
-                    value={formData.feedback_responses[question.id] || 0}
-                    onChange={(id, value) => {
-                      const updatedResponses = { ...formData.feedback_responses, [id]: value };
+                    value={formData.feedback_responses[`question_${index}`] || 0}
+                    onChange={(name, value) => {
+                      const updatedResponses = { ...formData.feedback_responses, [name]: value };
                       setFormData(prev => ({ ...prev, feedback_responses: updatedResponses }));
                     }}
                   />

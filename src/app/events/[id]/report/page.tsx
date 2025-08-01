@@ -78,27 +78,57 @@ export default function EventReportPage() {
   const calculateAverageRatings = () => {
     if (participantFeedback.length === 0) return null;
 
-    const totals = {
-      art: 0,
-      food: 0,
-      group: 0,
-      conversations: 0,
-    };
+    // Get feedback questions from the event
+    const feedbackQuestions = event?.feedback_questions || [];
+    if (feedbackQuestions.length === 0) return null;
 
-    participantFeedback.forEach((feedback) => {
-      totals.art += feedback.enjoyed_art;
-      totals.food += feedback.enjoyed_food;
-      totals.group += feedback.enjoyed_group;
-      totals.conversations += feedback.enjoyed_conversations;
+    // Calculate totals for each question
+    const questionTotals: Record<string, number> = {};
+    const questionCounts: Record<string, number> = {};
+
+    // Initialize totals and counts
+    feedbackQuestions.forEach((_, index) => {
+      const questionKey = `question_${index}`;
+      questionTotals[questionKey] = 0;
+      questionCounts[questionKey] = 0;
     });
 
-    const count = participantFeedback.length;
+    // Sum up all responses
+    participantFeedback.forEach((feedback) => {
+      if (feedback.feedback_responses) {
+        Object.entries(feedback.feedback_responses).forEach(([key, value]) => {
+          if (key.startsWith('question_') && typeof value === 'number' && value > 0) {
+            questionTotals[key] += value;
+            questionCounts[key] += 1;
+          }
+        });
+      }
+    });
+
+    // Calculate averages
+    const averages: Record<string, string> = {};
+    let totalSum = 0;
+    let totalCount = 0;
+
+    feedbackQuestions.forEach((_, index) => {
+      const questionKey = `question_${index}`;
+      const count = questionCounts[questionKey];
+      if (count > 0) {
+        const average = questionTotals[questionKey] / count;
+        averages[questionKey] = average.toFixed(1);
+        totalSum += questionTotals[questionKey];
+        totalCount += count;
+      } else {
+        averages[questionKey] = "0.0";
+      }
+    });
+
+    const overallAverage = totalCount > 0 ? (totalSum / totalCount).toFixed(1) : "0.0";
+
     return {
-      art: (totals.art / count).toFixed(1),
-      food: (totals.food / count).toFixed(1),
-      group: (totals.group / count).toFixed(1),
-      conversations: (totals.conversations / count).toFixed(1),
-      overall: ((totals.art + totals.food + totals.group + totals.conversations) / (count * 4)).toFixed(1),
+      questions: averages,
+      overall: overallAverage,
+      questionCount: feedbackQuestions.length
     };
   };
 
@@ -138,17 +168,31 @@ export default function EventReportPage() {
   };
 
   const handleExportExcel = () => {
+    // Get feedback questions from the event
+    const feedbackQuestions = event?.feedback_questions || [];
+
     // Participantes
-    const participantSheet = XLSX.utils.json_to_sheet(participantFeedback.map(fb => ({
-      Nome: fb.name,
-      Email: fb.email,
-      "Arte": fb.enjoyed_art,
-      "Comida": fb.enjoyed_food,
-      "Grupo": fb.enjoyed_group,
-      "Conversas": fb.enjoyed_conversations,
-      "Média": ((fb.enjoyed_art + fb.enjoyed_food + fb.enjoyed_group + fb.enjoyed_conversations) / 4).toFixed(1),
-      "Comentários": fb.comments
-    })));
+    const participantSheet = XLSX.utils.json_to_sheet(participantFeedback.map(fb => {
+      const row: any = {
+        Nome: fb.name,
+        Email: fb.email,
+        "Comentários": fb.comments
+      };
+
+      // Add dynamic feedback questions
+      feedbackQuestions.forEach((question, index) => {
+        const questionKey = `question_${index}`;
+        const response = fb.feedback_responses?.[questionKey] || 0;
+        row[`Pergunta ${index + 1}`] = response;
+      });
+
+      // Calculate average from dynamic responses
+      const responses = Object.values(fb.feedback_responses || {}).filter(v => typeof v === 'number' && v > 0);
+      const average = responses.length > 0 ? (responses.reduce((a, b) => a + b, 0) / responses.length).toFixed(1) : "0.0";
+      row["Média"] = average;
+
+      return row;
+    }));
     // Organizadores
     const organizerSheet = XLSX.utils.json_to_sheet(organizerFeedback.map(fb => ({
       "Organizador": fb.organizer_name,
@@ -292,38 +336,19 @@ export default function EventReportPage() {
                 <p className="text-center text-sm text-gray-500">Baseado em {participantFeedback.length} respostas</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <p className="font-medium">Arte e Decorações:</p>
-                    <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md font-medium">
-                      {averageRatings.art}/5
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <p className="font-medium">Comida e Bebidas:</p>
-                    <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md font-medium">
-                      {averageRatings.food}/5
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <p className="font-medium">Experiência em Grupo:</p>
-                    <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md font-medium">
-                      {averageRatings.group}/5
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <p className="font-medium">Conversas:</p>
-                    <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded-md font-medium">
-                      {averageRatings.conversations}/5
-                    </span>
-                  </div>
-                </div>
+              <div className="space-y-4 mt-6">
+                {event?.feedback_questions?.map((question, index) => {
+                  const questionKey = `question_${index}`;
+                  const average = averageRatings.questions[questionKey] || "0.0";
+                  return (
+                    <div key={index} className="flex justify-between items-center p-3 bg-white rounded-lg border border-emerald-100">
+                      <p className="font-medium text-gray-700">{question.question}</p>
+                      <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-md font-medium">
+                        {average}/5
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -338,23 +363,38 @@ export default function EventReportPage() {
           <CardContent>
             <div className="space-y-5">
               {participantFeedback.length > 0 ? (
-                participantFeedback.map((feedback) => (
-                  <div key={feedback.id} className="border-b pb-5 last:border-b-0 last:pb-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-medium text-emerald-800">{feedback.name}</p>
-                      <div className="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded-full">
-                        Média: {((feedback.enjoyed_art + feedback.enjoyed_food + feedback.enjoyed_group + feedback.enjoyed_conversations) / 4).toFixed(1)}/5
+                participantFeedback.map((feedback) => {
+                  // Calculate average from dynamic responses
+                  const responses = Object.values(feedback.feedback_responses || {}).filter(v => typeof v === 'number' && v > 0);
+                  const average = responses.length > 0 ? (responses.reduce((a, b) => a + b, 0) / responses.length).toFixed(1) : "0.0";
+
+                  return (
+                    <div key={feedback.id} className="border-b pb-5 last:border-b-0 last:pb-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="font-medium text-emerald-800">{feedback.name}</p>
+                        <div className="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded-full">
+                          Média: {average}/5
+                        </div>
                       </div>
+                      {event?.feedback_questions && event.feedback_questions.length > 0 && (
+                        <div className="text-gray-500 text-sm mb-3 space-y-1">
+                          {event.feedback_questions.map((question, index) => {
+                            const questionKey = `question_${index}`;
+                            const response = feedback.feedback_responses?.[questionKey] || 0;
+                            return (
+                              <p key={index} className="text-xs">
+                                <span className="font-medium">{question.question}:</span> {response}/5
+                              </p>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
+                        {feedback.comments || "Nenhum comentário fornecido."}
+                      </p>
                     </div>
-                    <p className="text-gray-500 text-sm mb-3">
-                      Arte: {feedback.enjoyed_art}/5 • Comida: {feedback.enjoyed_food}/5 •
-                      Grupo: {feedback.enjoyed_group}/5 • Conversas: {feedback.enjoyed_conversations}/5
-                    </p>
-                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
-                      {feedback.comments || "Nenhum comentário fornecido."}
-                    </p>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="text-center py-6 bg-gray-50 rounded-lg">
                   <p className="text-gray-500">Nenhum feedback de participante ainda.</p>
